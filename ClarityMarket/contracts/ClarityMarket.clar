@@ -98,3 +98,35 @@
     )
 )
 
+;; Buy item - Final marketplace interaction
+(define-public (buy-item (item-id uint))
+    (let
+        (
+            (item (unwrap! (get-item item-id) err-item-not-found))
+            (price (get price item))
+            (seller (get owner item))
+            (fee (calculate-fee price))
+            (seller-amount (- price fee))
+        )
+        ;; Checks
+        (asserts! (not (get is-sold item)) err-already-sold)
+        
+        ;; Process payments
+        (try! (stx-transfer? price tx-sender seller))
+        (try! (stx-transfer? fee tx-sender contract-owner))
+        
+        ;; Update item status
+        (map-set items
+            {item-id: item-id}
+            (merge item {
+                owner: tx-sender,
+                is-sold: true
+            })
+        )
+        
+        ;; Update market volume
+        (var-set market-volume (+ (var-get market-volume) price))
+        
+        (ok true)
+    )
+)
